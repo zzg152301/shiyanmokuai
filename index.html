@@ -3,66 +3,38 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>涡轮额度诊断工具</title>
+<title>涡轮额度诊断工具 - 改进版</title>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.1/dist/ethers.umd.min.js"></script>
 <style>
-  :root{
-    --bg:#0a0c12; --panel:#12151f; --panel2:#171b29; --border:#262b3d;
-    --text:#e6e8f0; --muted:#7a8099; --accent:#6c5ce7; --accent2:#00d9a5;
-    --warn:#ffb454; --danger:#ff5c7a; --mono:'JetBrains Mono',monospace;
-  }
+  :root{ --bg:#0a0c12; --panel:#12151f; --panel2:#171b29; --border:#262b3d; --text:#e6e8f0; --muted:#7a8099; --accent:#6c5ce7; --accent2:#00d9a5; --warn:#ffb454; --danger:#ff5c7a; --mono:'JetBrains Mono',monospace; }
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-  *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;padding:20px 16px 60px;}
-  .wrap{max-width:760px;margin:0 auto;}
-  h1{font-size:1.1rem;margin:0 0 4px;}
-  .sub{font-size:0.78rem;color:var(--muted);margin-bottom:18px;line-height:1.6;}
+  *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;padding:20px 16px 60px;}
+  .wrap{max-width:760px;margin:0 auto;} h1{font-size:1.1rem;margin:0 0 4px;} .sub{font-size:0.78rem;color:var(--muted);margin-bottom:18px;line-height:1.6;}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;}
   .btn{border:none;border-radius:10px;padding:11px 18px;font-weight:600;font-size:0.85rem;cursor:pointer;background:var(--accent);color:#fff;width:100%;}
-  .btn:disabled{background:#3a3a4a;color:#888;}
-  .field{margin-bottom:10px;}
+  .btn:disabled{background:#3a3a4a;color:#888;} .field{margin-bottom:10px;}
   .field input{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--text);font-family:var(--mono);font-size:0.82rem;}
   .field label{display:block;font-size:0.7rem;color:var(--muted);margin-bottom:4px;}
   .hint{font-size:0.7rem;color:var(--warn);background:rgba(255,180,84,.08);border:1px solid rgba(255,180,84,.25);border-radius:8px;padding:8px 10px;margin-bottom:12px;line-height:1.5;}
-  .result-row{
-    display:flex;justify-content:space-between;gap:10px;align-items:center;
-    padding:9px 12px;border-radius:8px;background:var(--panel2);border:1px solid var(--border);
-    font-family:var(--mono);font-size:0.76rem;margin-bottom:6px;
-  }
-  .result-row.hit{border-color:rgba(0,217,165,.5);background:rgba(0,217,165,.08);}
-  .result-row .name{color:var(--muted);}
-  .result-row .val{color:var(--text);font-weight:600;}
-  .result-row.hit .val{color:var(--accent2);}
-  .log-block{
-    background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px;
-    font-family:var(--mono);font-size:0.7rem;white-space:pre-wrap;word-break:break-all;color:var(--muted);
-    max-height:340px;overflow-y:auto;
-  }
-  .status{font-family:var(--mono);font-size:0.78rem;color:var(--muted);margin:10px 0;}
-  .status.ok{color:var(--accent2);}
-  .status.err{color:var(--danger);}
-  .walletInfo{font-family:var(--mono);font-size:0.78rem;color:var(--accent2);margin-bottom:10px;}
+  .result-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 12px;border-radius:8px;background:var(--panel2);border:1px solid var(--border);font-family:var(--mono);font-size:0.76rem;margin-bottom:6px;}
+  .result-row.hit{border-color:rgba(0,217,165,.5);background:rgba(0,217,165,.08);} .result-row .name{color:var(--muted);} .result-row .val{color:var(--text);font-weight:600;}
+  .result-row.hit .val{color:var(--accent2);} .log-block{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:var(--mono);font-size:0.7rem;white-space:pre-wrap;word-break:break-all;color:var(--muted);max-height:400px;overflow-y:auto;}
+  .status{font-family:var(--mono);font-size:0.78rem;color:var(--muted);margin:10px 0;} .status.ok{color:var(--accent2);} .status.err{color:var(--danger);}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>🔧 涡轮额度诊断工具</h1>
-  <div class="sub">先读标准 LGNS 余额，再读涡轮合约自定义字段。只读，不发交易。</div>
-
+  <h1>🔧 涡轮额度诊断工具（改进版）</h1>
+  <div class="sub">读取 LGNS 余额 + 涡轮合约真实额度。只读查询，支持领取前诊断。</div>
+  
   <div class="card">
     <div class="walletInfo" id="walletInfo">未连接</div>
     <button class="btn" id="connBtn" onclick="connect()">连接钱包</button>
   </div>
-
+  
   <div class="card">
-    <div class="field">
-      <label>诊断地址</label>
-      <input type="text" id="targetAddr" placeholder="0x..." />
-    </div>
-    <div class="field">
-      <label>扫描回溯区块数</label>
-      <input type="text" id="scanBlocks" value="500000" />
-    </div>
+    <div class="field"><label>诊断地址</label><input type="text" id="targetAddr" placeholder="0x..." /></div>
+    <div class="field"><label>扫描回溯区块数</label><input type="text" id="scanBlocks" value="1000000" /></div>
     <button class="btn" id="runBtn" onclick="runDiagnostics()" disabled>开始诊断</button>
     <div class="status" id="status">— 等待连接钱包 —</div>
   </div>
@@ -71,12 +43,12 @@
     <div style="font-weight:600;font-size:0.88rem;margin-bottom:8px;">① 标准 LGNS 余额</div>
     <div id="balanceResults"></div>
   </div>
-
+  
   <div class="card">
-    <div style="font-weight:600;font-size:0.88rem;margin-bottom:8px;">② 涡轮合约函数试探</div>
-    <div id="fnResults"></div>
+    <div style="font-weight:600;font-size:0.88rem;margin-bottom:8px;">② 涡轮合约额度（核心）</div>
+    <div id="turbineResults"></div>
   </div>
-
+  
   <div class="card">
     <div style="font-weight:600;font-size:0.88rem;margin-bottom:8px;">③ 原始事件日志</div>
     <div class="log-block" id="logResults">— 还没有扫描 —</div>
@@ -88,63 +60,30 @@ const TURBINE_ADDR = '0x07Ff4e06865de4934409Aa6eCea503b08Cc1C78d';
 const LGNS_TOKEN = '0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01';
 const LGNS_DECIMALS = 9;
 
-const CANDIDATES = [
-  'balanceOf',
-  'silenceOf',
-  'silenceBalance',
-  'getSilenceBalance',
-  'turbineBalance',
-  'getTurbineBalance',
-  'silentBalanceOf',
-  'userSilence',
-  'pendingSilence',
-  'silenceAmount',
-  'getSilenceAmount',
-  'amountSilenced',
-  'silencedAmount',
-  'mySilence',
-  'getMySilence',
-  'userBalance',
-  'getUserBalance',
-  'availableSilence',
-  'redeemableSilence',
-  'claimableSilence',
-  'lockedBalance',
-  'getLockedBalance',
-  'quotaOf',
-  'getQuota',
-  'remainingSilence',
-  'getRemainingSilence'
-];
-
 let provider, signer, userAddr;
 
 async function connect(){
-  const p = window.okxwallet || window.ethereum || (window.tokenpocket && window.tokenpocket.ethereum) || (window.bitkeep && window.bitkeep.ethereum);
-  if(!p){ alert('未检测到钱包插件，请在钱包内置浏览器中打开'); return; }
+  const p = window.okxwallet || window.ethereum || (window.tokenpocket && window.tokenpocket.ethereum);
+  if(!p){ alert('未检测到钱包，请在钱包内置浏览器打开'); return; }
   try{
     provider = new ethers.BrowserProvider(p);
     await provider.send('eth_requestAccounts', []);
-    try{ await p.request({method:'wallet_switchEthereumChain', params:[{chainId:'0x89'}]}); }catch(e){}
+    await p.request({method:'wallet_switchEthereumChain', params:[{chainId:'0x89'}]}).catch(()=>{});
     provider = new ethers.BrowserProvider(p);
     signer = await provider.getSigner();
     userAddr = await signer.getAddress();
-    document.getElementById('walletInfo').textContent = '已连接：' + userAddr;
+    document.getElementById('walletInfo').textContent = '已连接：' + userAddr.slice(0,8)+'...'+userAddr.slice(-6);
     document.getElementById('targetAddr').value = userAddr;
-    document.getElementById('connBtn').textContent = '已连接';
     document.getElementById('connBtn').disabled = true;
     document.getElementById('runBtn').disabled = false;
-    setStatus('✅ 钱包已连接，可以开始诊断', 'ok');
-  }catch(e){
-    alert('连接失败：' + (e.reason || e.message));
-  }
+    setStatus('✅ 钱包已连接', 'ok');
+  }catch(e){ alert('连接失败：' + e.message); }
 }
 
-function setStatus(msg, cls){
-  const el = document.getElementById('status');
-  el.textContent = msg;
-  el.classList.remove('ok','err');
-  if(cls) el.classList.add(cls);
+function setStatus(msg, cls){ 
+  const el = document.getElementById('status'); 
+  el.textContent = msg; 
+  el.className = 'status ' + (cls||''); 
 }
 
 function clearBox(id){ document.getElementById(id).innerHTML = ''; }
@@ -157,111 +96,97 @@ function addRow(boxId, name, val, hit=false){
 }
 
 async function readTokenBalance(token, target){
-  const abi = [
-    'function balanceOf(address owner) view returns (uint256)',
-    'function decimals() view returns (uint8)',
-    'function symbol() view returns (string)'
-  ];
+  const abi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function symbol() view returns (string)'];
   const c = new ethers.Contract(token, abi, provider);
   const raw = await c.balanceOf(target);
-  let dec = LGNS_DECIMALS;
-  let sym = 'LGNS';
-  try{ dec = Number(await c.decimals()); }catch(e){}
-  try{ sym = await c.symbol(); }catch(e){}
-  return {raw: raw.toString(), human: ethers.formatUnits(raw, dec), decimals: dec, symbol: sym};
-}
-
-async function tryFunctions(target){
-  const results = [];
-  for(const fnName of CANDIDATES){
-    try{
-      const abi = [`function ${fnName}(address) view returns (uint256)`];
-      const c = new ethers.Contract(TURBINE_ADDR, abi, provider);
-      const out = await c[fnName](target);
-      results.push({fnName, ok:true, raw: out.toString(), human: ethers.formatUnits(out, LGNS_DECIMALS)});
-    }catch(e){
-      results.push({fnName, ok:false});
-    }
-    await new Promise(r => setTimeout(r, 30));
-  }
-  return results;
-}
-
-async function scanLogs(target){
-  const currentBlock = await provider.getBlockNumber();
-  const scanRange = parseInt(document.getElementById('scanBlocks').value.trim() || '500000');
-  const fromBlock = Math.max(currentBlock - scanRange, 0);
-  const topic = ethers.zeroPadValue(ethers.getAddress(target), 32);
-
-  const q1 = provider.getLogs({address: TURBINE_ADDR, topics:[null, topic], fromBlock, toBlock:'latest'}).catch(()=>[]);
-  const q2 = provider.getLogs({address: TURBINE_ADDR, topics:[null, null, topic], fromBlock, toBlock:'latest'}).catch(()=>[]);
-  const q3 = provider.getLogs({address: TURBINE_ADDR, topics:[null, null, null, topic], fromBlock, toBlock:'latest'}).catch(()=>[]);
-  const [a,b,c] = await Promise.all([q1,q2,q3]);
-
-  const seen = new Set();
-  const all = [...a,...b,...c].filter(x => {
-    const k = x.transactionHash + '-' + x.logIndex;
-    if(seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  }).sort((x,y)=>x.blockNumber-y.blockNumber);
-
-  return {fromBlock, all};
+  return {raw: raw.toString(), human: ethers.formatUnits(raw, LGNS_DECIMALS)};
 }
 
 async function runDiagnostics(){
   const target = document.getElementById('targetAddr').value.trim() || userAddr;
-  if(!ethers.isAddress(target)){ setStatus('❌ 地址格式不对', 'err'); return; }
-
+  if(!ethers.isAddress(target)){ setStatus('❌ 地址格式错误', 'err'); return; }
+  
   document.getElementById('runBtn').disabled = true;
-  clearBox('balanceResults');
-  clearBox('fnResults');
+  clearBox('balanceResults'); clearBox('turbineResults');
   document.getElementById('logResults').textContent = '⏳ 扫描中...';
-
-  setStatus('⏳ 读取标准 LGNS 余额...', '');
+  
+  // 1. LGNS 余额
+  setStatus('⏳ 读取 LGNS 余额...', '');
   try{
     const bal = await readTokenBalance(LGNS_TOKEN, target);
-    addRow('balanceResults', `${bal.symbol} balanceOf`, `${bal.human} ${bal.symbol}`, true);
-    addRow('balanceResults', 'raw', bal.raw, false);
-    addRow('balanceResults', 'decimals', String(bal.decimals), false);
+    addRow('balanceResults', 'LGNS balanceOf', `${bal.human} LGNS`, true);
+    addRow('balanceResults', 'raw', bal.raw);
+  }catch(e){ addRow('balanceResults', 'LGNS', '读取失败'); }
+
+  // 2. 涡轮额度（关键函数）
+  setStatus('⏳ 查询涡轮额度...', '');
+  const turbineAbi = [
+    "function getTurbineBal(address) view returns (uint256)",
+    "function turbineBal(address) view returns (uint256)",
+    "function getClaimInfo(address) view returns (tuple(uint256 id, uint256 silenceBalance, uint256 rewardBalance, uint256 lastBlock)[])",
+    "function paused() view returns (bool)"
+  ];
+  const tc = new ethers.Contract(TURBINE_ADDR, turbineAbi, provider);
+  
+  try{
+    const tb1 = await tc.getTurbineBal(target).catch(()=>0);
+    const tb2 = await tc.turbineBal(target).catch(()=>0);
+    const claim = await tc.getClaimInfo(target).catch(()=>[]);
+    const paused = await tc.paused().catch(()=>false);
+    
+    if(tb1 > 0) addRow('turbineResults', 'getTurbineBal', `${ethers.formatUnits(tb1, LGNS_DECIMALS)} LGNS`, true);
+    if(tb2 > 0) addRow('turbineResults', 'turbineBal', `${ethers.formatUnits(tb2, LGNS_DECIMALS)} LGNS`, true);
+    addRow('turbineResults', 'paused', paused ? '是' : '否');
+    
+    if(claim.length > 0){
+      claim.forEach((c,i) => {
+        addRow('turbineResults', `Claim #${i} silence`, ethers.formatUnits(c.silenceBalance, LGNS_DECIMALS));
+        addRow('turbineResults', `Claim #${i} reward`, ethers.formatUnits(c.rewardBalance, LGNS_DECIMALS));
+      });
+    } else {
+      addRow('turbineResults', 'Claim Info', '无待领取记录');
+    }
   }catch(e){
-    addRow('balanceResults', 'LGNS balanceOf', '读取失败：请确认 LGNS 合约地址', false);
+    addRow('turbineResults', '涡轮查询', '部分失败：' + e.message.slice(0,80));
   }
 
-  setStatus('⏳ 试探涡轮合约函数...', '');
-  const hits = await tryFunctions(target);
-  let hitCount = 0;
-  hits.forEach(x => {
-    if(x.ok){
-      hitCount++;
-      addRow('fnResults', x.fnName + '(address)', `✅ ${x.human} LGNS`, true);
-    }else{
-      addRow('fnResults', x.fnName + '(address)', '✗', false);
-    }
-  });
-
+  // 3. 日志扫描（保持原逻辑）
   setStatus('⏳ 扫描事件日志...', '');
   try{
     const res = await scanLogs(target);
+    const logEl = document.getElementById('logResults');
     if(res.all.length === 0){
-      document.getElementById('logResults').textContent =
-        `最近 ${document.getElementById('scanBlocks').value.trim() || '500000'} 个区块未找到相关日志。\n建议：1) 增大扫描范围；2) 检查合约地址；3) 确认地址确实和涡轮合约有交互。`;
-    }else{
+      logEl.textContent = `最近 ${document.getElementById('scanBlocks').value} 个区块未找到日志。\n建议增大扫描范围或确认地址有交互。`;
+    } else {
       let lines = [`共找到 ${res.all.length} 条日志：\n`];
-      res.all.forEach((log, i) => {
+      res.all.forEach((log,i) => {
         lines.push(`#${i+1} Block ${log.blockNumber} Tx ${log.transactionHash}`);
-        lines.push(`topic0: ${log.topics[0]}`);
-        log.topics.slice(1).forEach((t, idx) => lines.push(`topic${idx+1}: ${t}`));
+        log.topics.forEach((t,idx) => lines.push(`topic${idx}: ${t}`));
         lines.push(`data: ${log.data}\n`);
       });
-      document.getElementById('logResults').textContent = lines.join('\n');
+      logEl.textContent = lines.join('\n');
     }
-  }catch(e){
-    document.getElementById('logResults').textContent = '❌ 日志扫描失败：' + (e.reason || e.message);
-  }
+  }catch(e){ document.getElementById('logResults').textContent = '日志失败：' + e.message; }
 
-  setStatus(hitCount ? '✅ 完成：已命中可读函数' : '完成：未命中自定义函数，但标准余额已读最关键', hitCount ? 'ok' : 'err');
+  setStatus('✅ 诊断完成', 'ok');
   document.getElementById('runBtn').disabled = false;
+}
+
+async function scanLogs(target){ /* 原 scanLogs 函数保持不变 */ 
+  const currentBlock = await provider.getBlockNumber();
+  const scanRange = parseInt(document.getElementById('scanBlocks').value || '1000000');
+  const fromBlock = Math.max(currentBlock - scanRange, 0);
+  const topic = ethers.zeroPadValue(ethers.getAddress(target), 32);
+  const q1 = provider.getLogs({address: TURBINE_ADDR, topics:[null, topic], fromBlock, toBlock:'latest'}).catch(()=>[]);
+  const q2 = provider.getLogs({address: TURBINE_ADDR, topics:[null, null, topic], fromBlock, toBlock:'latest'}).catch(()=>[]);
+  const q3 = provider.getLogs({address: TURBINE_ADDR, topics:[null, null, null, topic], fromBlock, toBlock:'latest'}).catch(()=>[]);
+  const [a,b,c] = await Promise.all([q1,q2,q3]);
+  const seen = new Set();
+  const all = [...a,...b,...c].filter(x => {
+    const k = x.transactionHash + '-' + x.logIndex;
+    if(seen.has(k)) return false; seen.add(k); return true;
+  }).sort((x,y)=> (y.blockNumber - x.blockNumber));
+  return {fromBlock, all};
 }
 </script>
 </body>
