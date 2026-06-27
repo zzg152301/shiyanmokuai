@@ -193,7 +193,7 @@
   .turbo-dai-preview .dai-val{color:var(--accent2);font-weight:700;}
   .debug-box{
     background:var(--panel2);border:1px solid var(--border);border-radius:8px;
-    padding:8px;font-family:var(--mono);font-size:0.7 ramp;color:var(--muted);
+    padding:8px;font-family:var(--mono);font-size:0.7rem;color:var(--muted);
     margin-top:8px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;
   }
 </style>
@@ -415,7 +415,7 @@
 
 <script>
 // ====================================================================
-//  合约地址（保持不变）
+//  合约地址
 // ====================================================================
 const ADDR = {
   LGNS: '0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01',
@@ -431,7 +431,6 @@ const ADDR = {
 const LGNS_DECIMALS = 9;
 const SLGNS_DECIMALS = 9;
 const DAI_DECIMALS = 18;
-const POLYGON_CHAIN_ID = 137;
 
 // ====================================================================
 //  ABI 定义
@@ -447,8 +446,7 @@ const CORE_ABI = [
   "function stake(uint256 _amount, address _recipient) returns (uint256)",
   "function unstake(uint256 _amount, bool _trigger)",
   "function claim(address _recipient)",
-  "function warmupInfo(address) view returns (uint256 deposit, uint256 gons, uint256 expiry, bool lock)",
-  "function epoch() view returns (uint256 length, uint256 number, uint256 endBlock, uint256 distribute)"
+  "function warmupInfo(address) view returns (uint256 deposit, uint256 gons, uint256 expiry, bool lock)"
 ];
 const ROUTER_ABI = [
   "function getAmountsOut(uint256 amountIn, address[] memory path) view returns (uint256[] memory)",
@@ -503,7 +501,7 @@ function pickWallet(type) {
   if (type === 'okx') p = window.okxwallet || window.ethereum;
   else if (type === 'tp') p = (window.tokenpocket && window.tokenpocket.ethereum) || window.ethereum;
   else if (type === 'bitget') p = (window.bitkeep && window.bitkeep.ethereum) || window.ethereum;
-  if (!p) { alert('未检测到钱包'); return; }
+  if (!p) { alert('未检测到钱包，请确认插件已开启'); return; }
   connectWallet(p);
 }
 async function connectWallet(walletProvider) {
@@ -523,7 +521,7 @@ async function connectWallet(walletProvider) {
             blockExplorerUrls: ['https://polygonscan.com']
           }]
         });
-      } else { alert('请手动切换到 Polygon'); return; }
+      } else { alert('请手动切换到 Polygon 网络'); return; }
     }
     provider = new ethers.BrowserProvider(walletProvider);
     signer = await provider.getSigner();
@@ -554,7 +552,7 @@ async function connectWallet(walletProvider) {
 }
 
 // ====================================================================
-//  逻辑核心
+//  业务逻辑
 // ====================================================================
 async function refreshAll() {
   if (!userAddr || !provider) return;
@@ -648,7 +646,7 @@ async function doTurboBuy() {
 }
 
 // ====================================================================
-//  质押 / 解锁 / 兑换
+//  普通活期质押与解质押
 // ====================================================================
 async function approveStakeEntry() {
   if (!lgnsContract) return showRes('resStake', '请先连接钱包', true);
@@ -793,7 +791,7 @@ async function doSwap() {
     const path = [ADDR.LGNS, ADDR.DAI]; if (!swapLgnsToDai) path.reverse();
     const rawIn = ethers.parseUnits(valIn, swapLgnsToDai ? LGNS_DECIMALS : DAI_DECIMALS);
     const outs = await routerContract.getAmountsOut(rawIn, path);
-    const outMin = outs[1] * 85n / 100n; // 15% 滑点保护（含5%转账税）
+    const outMin = outs[1] * 85n / 100n; 
     const deadline = Math.floor(Date.now() / 1000) + 1200;
     const tx = await routerContract.swapExactTokensForTokensSupportingFeeOnTransferTokens(rawIn, outMin, path, userAddr, deadline);
     await tx.wait(); showRes('resSwap', '✅ 兑换成功！', false, true);
@@ -802,7 +800,7 @@ async function doSwap() {
 }
 
 // ====================================================================
-//  长期定期 (Mint Staking) 二分查找逻辑
+//  定期 (Mint Staking) 二分查找逻辑
 // ====================================================================
 function getMintContract() {
   return document.getElementById('mintProductType').value === '360' ? mint360Contract : mint600Contract;
@@ -834,7 +832,7 @@ async function doMintClaimInterest() {
   const slabId = BigInt(idStr) - 1n;
   showRes('resMint4', `🔍 正在通过智能二分查找测算最大可提取金额...`);
   try {
-    let low = 1n; let high = 500000000000000000n; // 最高 5 亿
+    let low = 1n; let high = 500000000000000000n; 
     let maxValid = 0n;
     try {
       const data = await c.stakes(userAddr, slabId);
@@ -924,6 +922,23 @@ async function loadMintHistory() {
     showRes('resMintHistory', lines.join('\n'), false, true);
   } catch (e) { showRes('resMintHistory', '❌ ' + (e.reason || e.message), true); }
 }
+
+// ====================================================================
+//  🛠️ 刚才漏掉的 UI 辅助函数（已完美补回）
+// ====================================================================
+function showRes(id, msg, isErr, isOk) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('ok', 'err');
+  if (isErr) el.classList.add('err');
+  if (isOk) el.classList.add('ok');
+}
+
+// 页面加载自动初始化基础配置
+window.addEventListener('DOMContentLoaded', () => {
+  buildQuickIdButtons();
+});
 </script>
 </body>
 </html>
