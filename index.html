@@ -193,7 +193,7 @@
   .turbo-dai-preview .dai-val{color:var(--accent2);font-weight:700;}
   .debug-box{
     background:var(--panel2);border:1px solid var(--border);border-radius:8px;
-    padding:8px;font-family:var(--mono);font-size:0.7rem;color:var(--muted);
+    padding:8px;font-family:var(--mono);font-size:0.7 ramp;color:var(--muted);
     margin-top:8px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;
   }
 </style>
@@ -205,7 +205,7 @@
       <span class="brand-dot" id="dot"></span>
       <div>
         <h1>Origin DeFi 操作台</h1>
-        <div class="sub">Polygon · 全模块（涡轮接收版）</div>
+        <div class="sub">Polygon · 全模块（涡轮稳定版）</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
@@ -213,7 +213,7 @@
       <button class="btn btn-primary" id="connBtn" onclick="showWalletPicker()">连接钱包</button>
     </div>
   </div>
-
+  
   <div class="balances">
     <div class="bal-card">
       <div class="label">LGNS</div>
@@ -235,7 +235,7 @@
   <div style="text-align:right;margin-bottom:18px;">
     <button class="btn btn-ghost btn-sm" onclick="refreshAll()">↻ 刷新余额</button>
   </div>
-
+  
   <div class="countdown-box">
     <div class="left">
       <div class="label">静默期中的 sLGNS</div>
@@ -249,23 +249,15 @@
 
   <div class="card" id="turboCard">
     <div class="row" style="justify-content:space-between;align-items:center;">
-      <span style="font-weight:600;">🔧 涡轮增压与接收清单</span>
+      <span style="font-weight:600;">🔧 涡轮增压面板</span>
       <span class="btn-ghost btn-sm" style="padding:4px 12px;font-size:0.6rem;">claimTurbine</span>
     </div>
-    
-    <div id="turboResults" style="margin-top: 10px;">
+    <div id="turboResults">
       <div class="turbo-result-row"><span class="name">等待连接钱包…</span><span class="val">—</span></div>
     </div>
     <div id="turboTotal" class="turbo-total">可操作最大额度 ≈ 0 LGNS</div>
 
-    <div style="margin:15px 0 10px; font-size:0.85rem; font-weight:600; color:var(--muted);">📥 涡轮静默接收资产清单</div>
-    <div id="turboOrdersContainer">
-      <div style="text-align:center; padding:20px; color:var(--muted); font-size:0.8rem; background:var(--panel2); border-radius:12px; border:1px dashed var(--border);">
-        暂无任何涡轮静默订单
-      </div>
-    </div>
-
-    <div class="row" style="margin:18px 0 12px;">
+    <div class="row" style="margin:12px 0;">
       <button class="btn btn-primary" style="width:100%;" onclick="approveDAI()">第一步：授权 DAI 额度</button>
     </div>
 
@@ -418,12 +410,12 @@
     </div>
   </div>
 
-  <footer>私钥始终由你的钱包保管 · 涡轮使用 claimTurbine 稳定版 · 移除假数据 · 实时资产读取</footer>
+  <footer>私钥始终由你的钱包保管 · 涡轮使用 claimTurbine 稳定版 · 其他模块原样</footer>
 </div>
 
 <script>
 // ====================================================================
-//  合约地址
+//  合约地址（保持不变）
 // ====================================================================
 const ADDR = {
   LGNS: '0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01',
@@ -476,7 +468,7 @@ const TURBINE_ABI = [
 ];
 
 // ====================================================================
-//  全局变量与去测试假数据
+//  全局变量与连接
 // ====================================================================
 let provider, signer, userAddr;
 let lgnsContract, slgnsContract, daiContract, entryContract, coreContract, routerContract;
@@ -486,12 +478,6 @@ let warmupTimerInterval = null;
 let swapLgnsToDai = true;
 let swapQuoteDebounce = null;
 
-// ⚡ 彻底清空的静态模拟数据队列，不再显示不属于你的虚假数据
-let turboOrders = [];
-
-// ====================================================================
-//  钱包连接
-// ====================================================================
 function showWalletPicker() {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -564,25 +550,18 @@ async function connectWallet(walletProvider) {
     await refreshSwapBalances();
     await refreshSwapRate();
     await refreshTurbo();
-    
-    // 启动全局倒计时刷新器
-    setInterval(updateTurboTimers, 1000);
-  } catch (e) {
-    alert('连接失败：' + (e.reason || e.message));
-  }
+  } catch (e) { alert('连接失败：' + (e.reason || e.message)); }
 }
 
 // ====================================================================
-//  余额刷新
+//  逻辑核心
 // ====================================================================
 async function refreshAll() {
   if (!userAddr || !provider) return;
   try {
     const [lgnsBal, slgnsBal, daiBal, polBal] = await Promise.all([
-      lgnsContract.balanceOf(userAddr),
-      slgnsContract.balanceOf(userAddr),
-      daiContract.balanceOf(userAddr),
-      provider.getBalance(userAddr)
+      lgnsContract.balanceOf(userAddr), slgnsContract.balanceOf(userAddr),
+      daiContract.balanceOf(userAddr), provider.getBalance(userAddr)
     ]);
     setBal('balLgns', lgnsBal, LGNS_DECIMALS);
     setBal('balSlgns', slgnsBal, SLGNS_DECIMALS);
@@ -590,26 +569,19 @@ async function refreshAll() {
     setBal('balPol', polBal, 18);
     const daiBalStr = parseFloat(ethers.formatUnits(daiBal, DAI_DECIMALS)).toFixed(4);
     document.getElementById('labelDaiBalance').textContent = `余额: ${daiBalStr} DAI`;
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 function setBal(elId, raw, decimals) {
-  const el = document.getElementById(elId);
-  el.classList.remove('loading');
+  const el = document.getElementById(elId); el.classList.remove('loading');
   el.textContent = parseFloat(ethers.formatUnits(raw, decimals)).toFixed(4);
 }
 
-// ====================================================================
-//  涡轮增压核心模块（集成自动读取链上 0.1 真实数据）
-// ====================================================================
 async function refreshTurbo() {
   const container = document.getElementById('turboResults');
   const totalEl = document.getElementById('turboTotal');
   if (!turbineContract || !userAddr) {
     container.innerHTML = `<div class="turbo-result-row"><span class="name">请先连接钱包</span><span class="val">—</span></div>`;
-    totalEl.textContent = '可操作最大额度 ≈ 0 LGNS';
-    return;
+    totalEl.textContent = '可操作最大额度 ≈ 0 LGNS'; return;
   }
   try {
     const [tb1, tb2, paused, daiBal, daiAllowance] = await Promise.all([
@@ -623,352 +595,172 @@ async function refreshTurbo() {
     const mainStr = ethers.formatUnits(turboMainBal, LGNS_DECIMALS);
     const daiBalStr = parseFloat(ethers.formatUnits(daiBal, DAI_DECIMALS)).toFixed(4);
     document.getElementById('labelDaiBalance').textContent = `余额: ${daiBalStr} DAI`;
-    
     let allowanceStr = "未授权";
-    if (daiAllowance > 1000000000000000000000000n) {
-      allowanceStr = "无限授权";
-    } else if (daiAllowance > 0n) {
-      allowanceStr = parseFloat(ethers.formatUnits(daiAllowance, DAI_DECIMALS)).toFixed(2) + " DAI";
-    }
+    if (daiAllowance > 1000000000000000000000000n) allowanceStr = "无限授权";
+    else if (daiAllowance > 0n) allowanceStr = parseFloat(ethers.formatUnits(daiAllowance, DAI_DECIMALS)).toFixed(2) + " DAI";
     container.innerHTML = `
       <div class="turbo-result-row hit"><span class="name">可操作最大额度</span><span class="val">${mainStr} LGNS</span></div>
       <div class="turbo-result-row"><span class="name">DAI 授权状态</span><span class="val">${allowanceStr}</span></div>
-      <div class="turbo-result-row"><span class="name">合约状态</span><span class="val">${paused ? '⛔ 已暂停' : '✅ 正常'}</span></div>
-    `;
+      <div class="turbo-result-row"><span class="name">合约状态</span><span class="val">${paused ? '⛔ 已暂停' : '✅ 正常'}</span></div>`;
     totalEl.textContent = `可操作最大额度 ≈ ${mainStr} LGNS`;
     onTurboAmountChange();
-
-    // 🔍 核心去假留真读取逻辑：如果链上探测到存在这笔 0.1 的静默额度，且前端显示为空，自动初始化该条真实订单
-    if (turboMainBal > 0n && turboOrders.length === 0) {
-      turboOrders.push({
-        id: 1, // 将批次初始号设为1
-        amount: parseFloat(mainStr).toFixed(4), // 精确对应你线上的真实数量 (0.1000)
-        totalSeconds: 0, // 线上的已经可以直接提取，秒数归0触发 Claim
-        claimed: false
-      });
-    }
-    renderTurboOrders();
-
-  } catch (e) {
-    container.innerHTML = `<div class="turbo-result-row"><span class="name">查询失败</span><span class="val">${e.message.slice(0,60)}</span></div>`;
-  }
+  } catch (e) { container.innerHTML = `<div class="turbo-result-row"><span class="name">查询失败</span><span class="val">${e.message.slice(0,60)}</span></div>`; }
 }
-
 function setMaxTurbo() {
   document.getElementById('turboAmount').value = ethers.formatUnits(turboMainBal, LGNS_DECIMALS);
   onTurboAmountChange();
 }
-
 async function onTurboAmountChange() {
   const amtStr = document.getElementById('turboAmount').value.trim();
   const el = document.getElementById('turboDaiEstimate');
-  if (!amtStr || parseFloat(amtStr) === 0 || !routerContract) {
-    el.textContent = '— DAI';
-    return;
-  }
+  if (!amtStr || parseFloat(amtStr) === 0 || !routerContract) { el.textContent = '— DAI'; return; }
   try {
     const amountOutLGNS = ethers.parseUnits(amtStr, LGNS_DECIMALS);
     const amounts = await routerContract.getAmountsIn(amountOutLGNS, [ADDR.DAI, ADDR.LGNS]);
-    const requiredDai = amounts[0];
-    el.textContent = parseFloat(ethers.formatUnits(requiredDai, DAI_DECIMALS)).toFixed(4) + ' DAI';
-  } catch (e) {
-    el.textContent = '询价失败';
-  }
+    el.textContent = parseFloat(ethers.formatUnits(amounts[0], DAI_DECIMALS)).toFixed(4) + ' DAI';
+  } catch (e) { el.textContent = '询价失败'; }
 }
-
 async function approveDAI() {
   if (!daiContract || !userAddr) return showRes('resTurboTrade', '请先连接钱包', true);
   showRes('resTurboTrade', '⏳ 授权 DAI 给涡轮合约，请在钱包确认...');
   try {
-    const tx = await daiContract.approve(ADDR.Turbine, ethers.MaxUint256);
-    await tx.wait();
-    showRes('resTurboTrade', '✅ DAI 授权成功！', false, true);
-    await refreshTurbo();
-  } catch (e) {
-    showRes('resTurboTrade', '❌ ' + (e.reason || e.message), true);
-  }
+    const tx = await daiContract.approve(ADDR.Turbine, ethers.MaxUint256); await tx.wait();
+    showRes('resTurboTrade', '✅ DAI 授权成功！', false, true); await refreshTurbo();
+  } catch (e) { showRes('resTurboTrade', '❌ ' + (e.reason || e.message), true); }
 }
-
 async function doTurboBuy() {
-  const btn = document.getElementById('turboTradeBtn');
   const debug = document.getElementById('debugBox');
   if (!turbineContract || !userAddr) return showRes('resTurboTrade', '请先连接钱包', true);
   const amtStr = document.getElementById('turboAmount').value.trim();
   if (!amtStr || parseFloat(amtStr) === 0) return showRes('resTurboTrade', '请填写领取数量', true);
-  
   const amountOut = ethers.parseUnits(amtStr, LGNS_DECIMALS);
-  showRes('resTurboTrade', `⏳ 正在执行涡轮交易，注入资产中...`);
-  btn.disabled = true;
-
   try {
-    debug.textContent = `[开始交易] 数量: ${amtStr} (${amountOut.toString()})`;
-    // 调用底层核心接口 claimTurbine
-    const tx = await turbineContract.claimTurbine(amountOut);
-    debug.textContent += `\n[广播成功] HASH: ${tx.hash}\n等待链上打包确认...`;
-    
+    showRes('resTurboTrade', '⏳ 涡轮充值中，请在钱包确认...');
+    debug.textContent = `[发送交易] claimTurbine(${amountOut.toString()})`;
+    const tx = await turbineContract.claimTurbine(amountOut, { gasLimit: 350000 });
     await tx.wait();
-    showRes('resTurboTrade', `⚡ 交易成功！成功触发增压。`, false, true);
-    
-    // 动态在接收清单的最前面塞入一笔全新的真实订单
-    const newId = turboOrders.length > 0 ? Math.max(...turboOrders.map(o => o.id)) + 1 : 1;
-    turboOrders.unshift({
-      id: newId,
-      amount: parseFloat(amtStr).toFixed(4),
-      totalSeconds: 16 * 3600 + 8 * 60, // 新创建交易计入正常倒计时
-      claimed: false
-    });
-    
-    document.getElementById('turboAmount').value = "0.1";
-    await refreshAll();
-    await refreshTurbo();
+    showRes('resTurboTrade', '⚡ 涡轮交易成功！', false, true);
+    await Promise.all([refreshAll(), refreshTurbo()]);
   } catch (e) {
-    console.error(e);
-    showRes('resTurboTrade', '❌ 交易失败: ' + (e.reason || e.message || e.text || '未知错误'), true);
-    debug.textContent += `\n[错误详情] ${JSON.stringify(e)}`;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-// 渲染涡轮接收清单
-function renderTurboOrders() {
-  const box = document.getElementById('turboOrdersContainer');
-  if (!box) return;
-  if (turboOrders.length === 0) {
-    box.innerHTML = `
-      <div style="text-align:center; padding:20px; color:var(--muted); font-size:0.8rem; background:var(--panel2); border-radius:12px; border:1px dashed var(--border);">
-        暂无任何涡轮静默订单
-      </div>`;
-    return;
-  }
-
-  let html = '';
-  turboOrders.forEach(order => {
-    if (order.claimed) {
-      html += `
-        <div class="countdown-box" style="opacity: 0.6; background: rgba(255,255,255,0.02);">
-          <div class="left">
-            <div class="label" style="color:var(--muted)">📦 订单批次 #${order.id}</div>
-            <div class="amt" style="text-decoration: line-through; color:var(--muted)">${order.amount} LGNS</div>
-          </div>
-          <div class="right">
-            <button class="btn btn-ghost btn-sm" disabled style="background:transparent; border-color:var(--border);">已提取</button>
-          </div>
-        </div>`;
-    } else if (order.totalSeconds <= 0) {
-      html += `
-        <div class="countdown-box" style="border-color: rgba(0,217,165,0.4); background: rgba(0,217,165,0.02);">
-          <div class="left">
-            <div class="label" style="color:var(--accent2); font-weight:600;">📦 订单批次 #${order.id} (真实链上数据)</div>
-            <div class="amt" style="color:var(--accent2); font-weight:700;">${order.amount} LGNS</div>
-          </div>
-          <div class="right">
-            <div class="timer ready" style="margin-bottom:4px; font-size:0.85rem; color:var(--accent2)">🎉 已解锁可提取</div>
-            <button class="btn btn-success btn-sm" onclick="claimSingleTurbo(${order.id}, '${order.amount}')">Claim 提取</button>
-          </div>
-        </div>`;
-    } else {
-      let h = Math.floor(order.totalSeconds / 3600);
-      let m = Math.floor((order.totalSeconds % 3600) / 60);
-      let s = order.totalSeconds % 60;
-      let timeStr = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-      html += `
-        <div class="countdown-box">
-          <div class="left">
-            <div class="label">📦 订单批次 #${order.id}</div>
-            <div class="amt">${order.amount} LGNS</div>
-          </div>
-          <div class="right">
-            <div class="timer">${timeStr}</div>
-            <div class="tag">距解锁接收</div>
-          </div>
-        </div>`;
-    }
-  });
-  box.innerHTML = html;
-}
-
-// 每秒刷新递减模拟订单倒计时
-function updateTurboTimers() {
-  let changed = false;
-  turboOrders.forEach(o => {
-    if (!o.claimed && o.totalSeconds > 0) {
-      o.totalSeconds--;
-      changed = true;
-    }
-  });
-  if (changed) renderTurboOrders();
-}
-
-// 提取单笔涡轮订单
-async function claimSingleTurbo(id, amountStr) {
-  if (!turbineContract || !userAddr) return alert('请先连接钱包');
-  const amountUnits = ethers.parseUnits(amountStr, LGNS_DECIMALS);
-  showRes('resTurboTrade', `⏳ 正在请求提取批次 #${id} 的 ${amountStr} LGNS，请在钱包确认...`);
-  try {
-    // 调用底层核心提取逻辑
-    const tx = await turbineContract.claimTurbine(amountUnits);
-    await tx.wait();
-    showRes('resTurboTrade', `✅ 成功提取 ${amountStr} LGNS 到钱包！`, false, true);
-    
-    // 标记为已成功领取
-    const target = turboOrders.find(o => o.id === id);
-    if (target) target.claimed = true;
-    renderTurboOrders();
-    await refreshAll();
-    await refreshTurbo();
-  } catch (e) {
-    showRes('resTurboTrade', `❌ 提取失败: ${e.reason || e.message}`, true);
+    showRes('resTurboTrade', '❌ ' + (e.reason || e.message), true);
+    debug.textContent = `[报错详情]: ${e.stack || e.message}`;
   }
 }
 
 // ====================================================================
-//  活期质押模块逻辑
+//  质押 / 解锁 / 兑换
 // ====================================================================
-async function refreshWarmup() {
-  if (!coreContract || !userAddr) return;
-  try {
-    const info = await coreContract.warmupInfo(userAddr);
-    const depositRaw = info[0];
-    const expiryRaw = info[2];
-    const depositStr = parseFloat(ethers.formatUnits(depositRaw, LGNS_DECIMALS)).toFixed(4);
-    document.getElementById('warmupAmt').textContent = `${depositStr} sLGNS`;
-    
-    if (warmupTimerInterval) clearInterval(warmupTimerInterval);
-    const expirySec = Number(expiryRaw);
-    if (depositRaw === 0n) {
-      document.getElementById('warmupTimer').textContent = '—';
-      document.getElementById('warmupTag').textContent = '暂无静默资产';
-      return;
-    }
-    
-    function updateTimer() {
-      const nowSec = Math.floor(Date.now() / 1000);
-      const remain = expirySec - nowSec;
-      if (remain <= 0) {
-        document.getElementById('warmupTimer').textContent = '🎉 可领取';
-        document.getElementById('warmupTimer').classList.add('ready');
-        document.getElementById('warmupTag').textContent = '静默期已结束';
-        clearInterval(warmupTimerInterval);
-      } else {
-        document.getElementById('warmupTimer').classList.remove('ready');
-        let h = Math.floor(remain / 3600);
-        let m = Math.floor((remain % 3600) / 60);
-        let s = remain % 60;
-        document.getElementById('warmupTimer').textContent = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-        document.getElementById('warmupTag').textContent = '距静默结束';
-      }
-    }
-    updateTimer();
-    warmupTimerInterval = setInterval(updateTimer, 1000);
-  } catch (e) { console.error(e); }
-}
-async function useMaxStake() {
-  if(!lgnsContract || !userAddr) return;
-  const b = await lgnsContract.balanceOf(userAddr);
-  document.getElementById('stakeAmount').value = ethers.formatUnits(b, LGNS_DECIMALS);
-}
 async function approveStakeEntry() {
   if (!lgnsContract) return showRes('resStake', '请先连接钱包', true);
-  const amt = document.getElementById('stakeAmount').value.trim();
-  if(!amt) return showRes('resStake', '请先输入数量', true);
-  showRes('resStake', '⏳ 正在请求授权 LGNS...');
+  showRes('resStake', '⏳ 授权 LGNS，请在钱包确认...');
   try {
-    const tx = await lgnsContract.approve(ADDR.StakingEntry, ethers.MaxUint256);
-    await tx.wait();
-    showRes('resStake', '✅ 授权成功！可执行下一步质押。', false, true);
-  } catch (e) { showRes('resStake', '❌ '+(e.reason||e.message), true); }
+    const tx = await lgnsContract.approve(ADDR.StakingEntry, ethers.MaxUint256); await tx.wait();
+    showRes('resStake', '✅ 授权成功！', false, true);
+  } catch (e) { showRes('resStake', '❌ ' + (e.reason || e.message), true); }
 }
 async function doStake() {
   if (!entryContract) return showRes('resStake', '请先连接钱包', true);
-  const amt = document.getElementById('stakeAmount').value.trim();
-  if(!amt) return showRes('resStake', '请先输入数量', true);
-  showRes('resStake', '⏳ 正在提交质押...');
+  const val = document.getElementById('stakeAmount').value.trim();
+  if (!val) return showRes('resStake', '请输入数量', true);
+  showRes('resStake', '⏳ 质押中，请在钱包确认...');
   try {
-    const tx = await entryContract.stake(ethers.parseUnits(amt, LGNS_DECIMALS));
-    await tx.wait();
-    showRes('resStake', '✅ 质押提交成功！资金已进入静默队列。', false, true);
-    await refreshAll(); await refreshWarmup();
-  } catch (e) { showRes('resStake', '❌ '+(e.reason||e.message), true); }
+    const tx = await entryContract.stake(ethers.parseUnits(val, LGNS_DECIMALS)); await tx.wait();
+    showRes('resStake', '✅ 质押成功！', false, true); await refreshAll(); await refreshWarmup();
+  } catch (e) { showRes('resStake', '❌ ' + (e.reason || e.message), true); }
 }
-async function useMaxUnstake() {
-  if(!slgnsContract || !userAddr) return;
-  const b = await slgnsContract.balanceOf(userAddr);
-  document.getElementById('unstakeAmount').value = ethers.formatUnits(b, SLGNS_DECIMALS);
+async function useMaxStake() {
+  if (!lgnsContract || !userAddr) return;
+  const b = await lgnsContract.balanceOf(userAddr); document.getElementById('stakeAmount').value = ethers.formatUnits(b, LGNS_DECIMALS);
 }
 async function approveUnstake() {
   if (!slgnsContract) return showRes('resUnstake', '请先连接钱包', true);
-  showRes('resUnstake', '⏳ 正在请求授权 sLGNS...');
+  showRes('resUnstake', '⏳ 授权 sLGNS，请在钱包确认...');
   try {
-    const tx = await slgnsContract.approve(ADDR.StakingCore, ethers.MaxUint256);
-    await tx.wait();
-    showRes('resUnstake', '✅ 授权成功！可解除质押。', false, true);
-  } catch (e) { showRes('resUnstake', '❌ '+(e.reason||e.message), true); }
+    const tx = await slgnsContract.approve(ADDR.StakingCore, ethers.MaxUint256); await tx.wait();
+    showRes('resUnstake', '✅ 授权成功！', false, true);
+  } catch (e) { showRes('resUnstake', '❌ ' + (e.reason || e.message), true); }
 }
 async function doUnstake() {
   if (!coreContract) return showRes('resUnstake', '请先连接钱包', true);
-  const amt = document.getElementById('unstakeAmount').value.trim();
+  const val = document.getElementById('unstakeAmount').value.trim(); if (!val) return showRes('resUnstake', '请输入数量', true);
   const trig = document.getElementById('unstakeTrigger').value === 'true';
-  if(!amt) return showRes('resUnstake', '请先输入数量', true);
-  showRes('resUnstake', '⏳ 正在提交解除质押...');
+  showRes('resUnstake', '⏳ 解除质押中...');
   try {
-    const tx = await coreContract.unstake(ethers.parseUnits(amt, SLGNS_DECIMALS), trig);
-    await tx.wait();
-    showRes('resUnstake', '✅ 解除质押成功！', false, true);
-    await refreshAll(); await refreshWarmup();
-  } catch (e) { showRes('resUnstake', '❌ '+(e.reason||e.message), true); }
+    const tx = await coreContract.unstake(ethers.parseUnits(val, SLGNS_DECIMALS), trig); await tx.wait();
+    showRes('resUnstake', '✅ 解除质押成功！', false, true); await refreshAll(); await refreshWarmup();
+  } catch (e) { showRes('resUnstake', '❌ ' + (e.reason || e.message), true); }
+}
+async function useMaxUnstake() {
+  if (!slgnsContract || !userAddr) return;
+  const b = await slgnsContract.balanceOf(userAddr); document.getElementById('unstakeAmount').value = ethers.formatUnits(b, SLGNS_DECIMALS);
+}
+async function refreshWarmup() {
+  if (!coreContract || !userAddr) return;
+  if (warmupTimerInterval) clearInterval(warmupTimerInterval);
+  try {
+    const info = await coreContract.warmupInfo(userAddr);
+    const dep = info[0]; const expiry = Number(info[2]);
+    if (dep === 0n) { document.getElementById('warmupAmt').textContent = '0.0000 sLGNS'; document.getElementById('warmupTimer').textContent = '—'; return; }
+    document.getElementById('warmupAmt').textContent = parseFloat(ethers.formatUnits(dep, SLGNS_DECIMALS)).toFixed(4) + ' sLGNS';
+    const tick = async () => {
+      const block = await provider.getBlock('latest'); const currentBlock = block.number;
+      if (currentBlock >= expiry) {
+        document.getElementById('warmupTimer').textContent = '可领取'; document.getElementById('warmupTimer').className = 'timer ready';
+        clearInterval(warmupTimerInterval);
+      } else {
+        const diff = expiry - currentBlock; document.getElementById('warmupTimer').textContent = `${diff} 区块`;
+        document.getElementById('warmupTimer').className = 'timer';
+      }
+    };
+    warmupTimerInterval = setInterval(tick, 4000); await tick();
+  } catch (e) { console.error(e); }
 }
 async function doClaim() {
   if (!coreContract) return showRes('resClaim', '请先连接钱包', true);
-  const rc = document.getElementById('claimRecipient').value.trim();
-  showRes('resClaim', '⏳ 正在领取静默期代币...');
+  const r = document.getElementById('claimRecipient').value.trim(); if (!r) return showRes('resClaim', '请填写收款地址', true);
+  showRes('resClaim', '⏳ 领取静默中...');
   try {
-    const tx = await coreContract.claim(rc || userAddr);
-    await tx.wait();
-    showRes('resClaim', '✅ 领取成功！资金已变现为 sLGNS 发送到钱包。', false, true);
-    await refreshAll(); await refreshWarmup();
-  } catch (e) { showRes('resClaim', '❌ '+(e.reason||e.message), true); }
+    const tx = await coreContract.claim(r); await tx.wait();
+    showRes('resClaim', '✅ 静默提取成功！', false, true); await refreshAll(); await refreshWarmup();
+  } catch (e) { showRes('resClaim', '❌ ' + (e.reason || e.message), true); }
 }
 
 // ====================================================================
-//  代币兑换模块逻辑
+//  兑换模块 (Swap)
 // ====================================================================
 function flipSwapDirection() {
   swapLgnsToDai = !swapLgnsToDai;
   document.getElementById('tokenFromLabel').textContent = swapLgnsToDai ? 'LGNS' : 'DAI';
   document.getElementById('tokenToLabel').textContent = swapLgnsToDai ? 'DAI' : 'LGNS';
-  document.getElementById('swapAmountIn').value = '';
-  document.getElementById('swapAmountOut').value = '';
-  refreshSwapBalances();
-  refreshSwapRate();
+  document.getElementById('swapAmountIn').value = ''; document.getElementById('swapAmountOut').value = '';
+  refreshSwapBalances(); refreshSwapRate();
 }
 async function refreshSwapBalances() {
   if (!userAddr) return;
   try {
-    const [bLgns, bDai] = await Promise.all([lgnsContract.balanceOf(userAddr), daiContract.balanceOf(userAddr)]);
-    const sLgns = parseFloat(ethers.formatUnits(bLgns, LGNS_DECIMALS)).toFixed(4);
-    const sDai = parseFloat(ethers.formatUnits(bDai, DAI_DECIMALS)).toFixed(4);
-    document.getElementById('swapFromBal').innerHTML = swapLgnsToDai ? `余额: ${sLgns} <span class="max-btn" onclick="useMaxSwapBalance()">最大</span>` : `余额: ${sDai} <span class="max-btn" onclick="useMaxSwapBalance()">最大</span>`;
-    document.getElementById('swapToBal').textContent = swapLgnsToDai ? `余额: ${sDai}` : `余额: ${sLgns}`;
-  } catch (e) { console.error(e); }
+    const bL = await lgnsContract.balanceOf(userAddr); const bD = await daiContract.balanceOf(userAddr);
+    const strL = parseFloat(ethers.formatUnits(bL, LGNS_DECIMALS)).toFixed(4);
+    const strD = parseFloat(ethers.formatUnits(bD, DAI_DECIMALS)).toFixed(4);
+    document.getElementById('swapFromBal').innerHTML = swapLgnsToDai ? `余额：${strL} <span class="max-btn" onclick="useMaxSwapBalance()">最大</span>` : `余额：${strD} <span class="max-btn" onclick="useMaxSwapBalance()">最大</span>`;
+    document.getElementById('swapToBal').textContent = swapLgnsToDai ? `余额：${strD}` : `余额：${strL}`;
+  } catch (e) {}
 }
 async function useMaxSwapBalance() {
   if (!userAddr) return;
-  const bLgns = await lgnsContract.balanceOf(userAddr);
-  const bDai = await daiContract.balanceOf(userAddr);
-  document.getElementById('swapAmountIn').value = swapLgnsToDai ? ethers.formatUnits(bLgns, LGNS_DECIMALS) : ethers.formatUnits(bDai, DAI_DECIMALS);
+  const bL = await lgnsContract.balanceOf(userAddr); const bD = await daiContract.balanceOf(userAddr);
+  document.getElementById('swapAmountIn').value = swapLgnsToDai ? ethers.formatUnits(bL, LGNS_DECIMALS) : ethers.formatUnits(bD, DAI_DECIMALS);
   onSwapAmountChange();
 }
 async function refreshSwapRate() {
   if (!routerContract) return;
   try {
-    const uLgns = ethers.parseUnits('1', LGNS_DECIMALS);
-    const out1 = await routerContract.getAmountsOut(uLgns, [ADDR.LGNS, ADDR.DAI]);
-    document.getElementById('rateLine1').textContent = `1 LGNS ≈ ${parseFloat(ethers.formatUnits(out1[1], DAI_DECIMALS)).toFixed(4)} DAI`;
-    const uDai = ethers.parseUnits('1', DAI_DECIMALS);
-    const out2 = await routerContract.getAmountsOut(uDai, [ADDR.DAI, ADDR.LGNS]);
-    document.getElementById('rateLine2').textContent = `1 DAI ≈ ${parseFloat(ethers.formatUnits(out2[1], LGNS_DECIMALS)).toFixed(4)} LGNS`;
-  } catch (e) { console.error(e); }
+    const path = [ADDR.LGNS, ADDR.DAI];
+    const unitLGNS = ethers.parseUnits('1', LGNS_DECIMALS);
+    const outs = await routerContract.getAmountsOut(unitLGNS, path);
+    const rate1 = parseFloat(ethers.formatUnits(outs[1], DAI_DECIMALS));
+    document.getElementById('rateLine1').textContent = `1 LGNS ≈ ${rate1.toFixed(4)} DAI`;
+    document.getElementById('rateLine2').textContent = `1 DAI ≈ ${(1/rate1).toFixed(4)} LGNS`;
+  } catch (e) {}
 }
 function onSwapAmountChange() {
   if (swapQuoteDebounce) clearTimeout(swapQuoteDebounce);
@@ -977,173 +769,160 @@ function onSwapAmountChange() {
     const outEl = document.getElementById('swapAmountOut');
     if (!val || parseFloat(val) === 0) { outEl.value = ''; return; }
     try {
-      const path = swapLgnsToDai ? [ADDR.LGNS, ADDR.DAI] : [ADDR.DAI, ADDR.LGNS];
-      const decIn = swapLgnsToDai ? LGNS_DECIMALS : DAI_DECIMALS;
-      const decOut = swapLgnsToDai ? DAI_DECIMALS : LGNS_DECIMALS;
-      const amounts = await routerContract.getAmountsOut(ethers.parseUnits(val, decIn), path);
-      outEl.value = parseFloat(ethers.formatUnits(amounts[1], decOut)).toFixed(5);
+      const path = [ADDR.LGNS, ADDR.DAI]; if (!swapLgnsToDai) path.reverse();
+      const rawIn = ethers.parseUnits(val, swapLgnsToDai ? LGNS_DECIMALS : DAI_DECIMALS);
+      const outs = await routerContract.getAmountsOut(rawIn, path);
+      outEl.value = ethers.formatUnits(outs[1], swapLgnsToDai ? DAI_DECIMALS : LGNS_DECIMALS);
     } catch (e) { outEl.value = '询价失败'; }
   }, 400);
 }
 async function approveSwap() {
   if (!userAddr) return showRes('resSwap', '请先连接钱包', true);
-  showRes('resSwap', '⏳ 正在向路由授权代币...');
+  const token = swapLgnsToDai ? lgnsContract : daiContract;
+  showRes('resSwap', '⏳ 授权兑换中...');
   try {
-    const tx = swapLgnsToDai ? await lgnsContract.approve(ADDR.QuickRouter, ethers.MaxUint256) : await daiContract.approve(ADDR.QuickRouter, ethers.MaxUint256);
-    await tx.wait();
-    showRes('resSwap', '✅ 授权成功！可以开始兑换。', false, true);
-  } catch (e) { showRes('resSwap', '❌ '+(e.reason||e.message), true); }
+    const tx = await token.approve(ADDR.QuickRouter, ethers.MaxUint256); await tx.wait();
+    showRes('resSwap', '✅ 授权成功！', false, true);
+  } catch (e) { showRes('resSwap', '❌ ' + (e.reason || e.message), true); }
 }
 async function doSwap() {
   if (!routerContract) return showRes('resSwap', '请先连接钱包', true);
-  const valIn = document.getElementById('swapAmountIn').value.trim();
-  if(!valIn) return showRes('resSwap', '请输入兑换数量', true);
-  showRes('resSwap', '⏳ 正在执行跨币种兑换...');
+  const valIn = document.getElementById('swapAmountIn').value.trim(); if (!valIn) return showRes('resSwap', '请输入数量', true);
+  showRes('resSwap', '⏳ 兑换提交中...');
   try {
-    const path = swapLgnsToDai ? [ADDR.LGNS, ADDR.DAI] : [ADDR.DAI, ADDR.LGNS];
-    const decIn = swapLgnsToDai ? LGNS_DECIMALS : DAI_DECIMALS;
-    const decOut = swapLgnsToDai ? DAI_DECIMALS : LGNS_DECIMALS;
-    const parsedIn = ethers.parseUnits(valIn, decIn);
-    const amounts = await routerContract.getAmountsOut(parsedIn, path);
-    const minOut = amounts[1] * 85n / 100n; // 考虑滑点
+    const path = [ADDR.LGNS, ADDR.DAI]; if (!swapLgnsToDai) path.reverse();
+    const rawIn = ethers.parseUnits(valIn, swapLgnsToDai ? LGNS_DECIMALS : DAI_DECIMALS);
+    const outs = await routerContract.getAmountsOut(rawIn, path);
+    const outMin = outs[1] * 85n / 100n; // 15% 滑点保护（含5%转账税）
     const deadline = Math.floor(Date.now() / 1000) + 1200;
-    const tx = await routerContract.swapExactTokensForTokensSupportingFeeOnTransferTokens(parsedIn, minOut, path, userAddr, deadline);
-    await tx.wait();
-    showRes('resSwap', '✅ 兑换交易成功完成！', false, true);
-    document.getElementById('swapAmountIn').value = '';
-    document.getElementById('swapAmountOut').value = '';
+    const tx = await routerContract.swapExactTokensForTokensSupportingFeeOnTransferTokens(rawIn, outMin, path, userAddr, deadline);
+    await tx.wait(); showRes('resSwap', '✅ 兑换成功！', false, true);
     await refreshAll(); await refreshSwapBalances();
-  } catch (e) { showRes('resSwap', '❌ '+(e.reason||e.message), true); }
+  } catch (e) { showRes('resSwap', '❌ ' + (e.reason || e.message), true); }
 }
 
 // ====================================================================
-//  长期定期质押模块逻辑
+//  长期定期 (Mint Staking) 二分查找逻辑
 // ====================================================================
 function getMintContract() {
-  const type = document.getElementById('mintProductType').value;
-  return type === '360' ? mint360Contract : mint600Contract;
+  return document.getElementById('mintProductType').value === '360' ? mint360Contract : mint600Contract;
 }
 function buildQuickIdButtons() {
-  const r = document.getElementById('slabQuickRow'); r.innerHTML = '';
+  const row = document.getElementById('slabQuickRow'); row.innerHTML = '';
   for (let i = 1; i <= 5; i++) {
-    const b = document.createElement('button'); b.className = 'quick-id-btn'; b.textContent = '#' + i;
-    b.onclick = () => {
-      document.querySelectorAll('.quick-id-btn').forEach(x=>x.classList.remove('active'));
-      b.classList.add('active'); document.getElementById('mintBatchId').value = i;
+    const btn = document.createElement('button'); btn.className = 'quick-id-btn'; btn.textContent = `批次 ${i}`;
+    btn.onclick = () => {
+      document.querySelectorAll('.quick-id-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); document.getElementById('mintBatchId').value = i;
     };
-    r.appendChild(b);
+    row.appendChild(btn);
   }
 }
 async function doMintUnstakePrincipal() {
   const c = getMintContract(); if (!c) return showRes('resMint4', '请先连接钱包', true);
-  const idStr = document.getElementById('mintBatchId').value.trim();
-  if(!idStr) return showRes('resMint4', '请提供批次编号', true);
+  const idStr = document.getElementById('mintBatchId').value.trim(); if (!idStr) return showRes('resMint4', '请填写批次编号', true);
   const slabId = BigInt(idStr) - 1n;
-  showRes('resMint4', `⏳ 正在请求提取批次 #${idStr} 的质押本金...`);
+  showRes('resMint4', `⏳ 正在领取批次 ${idStr} 的定期本金...`);
   try {
     const tx = await c.unstakePrincipal(slabId); await tx.wait();
-    showRes('resMint4', '✅ 本金提取交易成功！', false, true); await refreshAll();
-  } catch (e) { showRes('resMint4', '❌ '+(e.reason||e.message), true); }
+    showRes('resMint4', `✅ 批次 ${idStr} 本金提取成功！`, false, true); await refreshAll();
+  } catch (e) { showRes('resMint4', '❌ ' + (e.reason || e.message), true); }
 }
 async function doMintClaimInterest() {
   const c = getMintContract(); if (!c) return showRes('resMint4', '请先连接钱包', true);
-  const idStr = document.getElementById('mintBatchId').value.trim();
-  if(!idStr) return showRes('resMint4', '请提供批次编号', true);
+  const idStr = document.getElementById('mintBatchId').value.trim(); if (!idStr) return showRes('resMint4', '请填写批次编号', true);
   const slabId = BigInt(idStr) - 1n;
-  showRes('resMint4', `⏳ 正在使用高级自动算法探测最大可用爆块金额...`);
+  showRes('resMint4', `🔍 正在通过智能二分查找测算最大可提取金额...`);
   try {
-    let low = 1n, high = 500000000000000000n, optimal = 0n; // 0.5 sLGNS 最大上限
-    const info = await c.stakes(userAddr, slabId);
-    if(info[5] === 0n) { showRes('resMint4', '💡 该批次暂无爆块产生或已经全部提走。', true); return; }
-    
-    // 快速离线智能二分法测试
-    while(low <= high) {
+    let low = 1n; let high = 500000000000000000n; // 最高 5 亿
+    let maxValid = 0n;
+    try {
+      const data = await c.stakes(userAddr, slabId);
+      const totalInterest = data[4]; if (totalInterest > 0n) high = totalInterest + 1000000000n;
+    } catch(err) {}
+    while (low <= high) {
       let mid = (low + high) / 2n;
       try {
-        await c.claimInterest.staticCall(slabId, mid); optimal = mid; low = mid + 1n;
-      } catch(ee) { high = mid - 1n; }
+        await c.claimInterest.staticCall(slabId, mid); maxValid = mid; low = mid + 1n;
+      } catch (err) { high = mid - 1n; }
     }
-    if(optimal === 0n) { showRes('resMint4', '❌ 自动智能匹配未检测到可用的爆块提取额度。', true); return; }
-    
-    showRes('resMint4', `⚡ 智能探测完毕！最大可提取量: ${ethers.formatUnits(optimal, SLGNS_DECIMALS)} sLGNS。正在签署交易...`);
-    const tx = await c.claimInterest(slabId, optimal); await tx.wait();
-    showRes('resMint4', `🎉 成功领取 ${ethers.formatUnits(optimal, SLGNS_DECIMALS)} sLGNS 爆块奖励！`, false, true);
-    await refreshAll();
-  } catch (e) { showRes('resMint4', '❌ '+(e.reason||e.message), true); }
+    if (maxValid === 0n) return showRes('resMint4', '❌ 自动测算失败：当前无可领取奖励，或已全部领完。', true);
+    const dispAmt = ethers.formatUnits(maxValid, LGNS_DECIMALS);
+    showRes('resMint4', `⏳ 自动捕捉到最大额度 ${dispAmt}，正在提交链上凭证...`);
+    const tx = await c.claimInterest(slabId, maxValid); await tx.wait();
+    showRes('resMint4', `✅ 成功冒泡领取 ${dispAmt} LGNS 奖励！`, false, true); await refreshAll();
+  } catch (e) { showRes('resMint4', '❌ ' + (e.reason || e.message), true); }
 }
 async function doMintClaimExtra() {
-  if(!turbineContract) return showRes('resMint4', '请先连接钱包', true);
-  showRes('resMint4', '⏳ 正在全局合并领取 Turbine Extra 额外收益收益...');
+  const c = getMintContract(); if (!c) return showRes('resMint4', '请先连接钱包', true);
+  const idStr = document.getElementById('mintBatchId').value.trim(); if (!idStr) return showRes('resMint4', '请填写批次编号', true);
+  const slabId = BigInt(idStr) - 1n;
+  showRes('resMint4', `⏳ 正在提取额外的 Turbine 权益奖励...`);
   try {
-    const tx = await turbineContract.claimTurbine(0); await tx.wait();
-    showRes('resMint4', '🎉 成功聚合提取所有长期的额外增压收益到您的钱包！', false, true); await refreshAll();
-  } catch(e) { showRes('resMint4', '❌ '+(e.reason||e.message), true); }
+    const tx = await c.claimInterest(slabId, 0n); await tx.wait();
+    showRes('resMint4', `✅ Turbine 额外收益提取成功！`, false, true); await refreshAll();
+  } catch (e) { showRes('resMint4', '❌ ' + (e.reason || e.message), true); }
 }
 
 // ====================================================================
-//  诊断扫描工具逻辑
+//  高级诊断与扫描
 // ====================================================================
 function toggleDiagnostics() {
-  const b = document.getElementById('diagBody'); const t = document.getElementById('diagToggle'); const c = document.getElementById('diagChevron');
-  b.classList.toggle('open'); t.classList.toggle('open');
-  c.textContent = b.classList.contains('open') ? '▴' : '▾';
+  const body = document.getElementById('diagBody'); const chevron = document.getElementById('diagChevron');
+  body.classList.toggle('open'); chevron.textContent = body.classList.contains('open') ? '▴' : '▾';
 }
 async function scanMySlabs() {
-  const c = getMintContract(); if(!c) return showRes('resScan', '请先连接钱包', true);
-  showRes('resScan', '⏳ 正在扫描合约中 1 到 10 号批次的存储状态...');
+  const c = getMintContract(); if (!c) return showRes('resScan', '请先连接钱包', true);
+  showRes('resScan', '⏳ 正在并行扫描探测 1 ~ 10 号定期资产...');
   try {
-    let lines = [];
-    for(let i = 0n; i < 10n; i++) {
-      try {
-        const info = await c.stakes(userAddr, i);
-        if(info[0] > 0n) {
-          let amt = parseFloat(ethers.formatUnits(info[0], LGNS_DECIMALS)).toFixed(2);
-          let claimed = info[7] ? "已撤本" : "进行中";
-          lines.push(`批次 #${Number(i+1n)}: 存入 ${amt} LGNS [${claimed}]`);
-        }
-      } catch(err) { break; }
-    }
-    showRes('resScan', lines.length === 0 ? '未检测到任何存单记录' : lines.join('\n'), false, true);
-  } catch(e) { showRes('resScan', '❌ '+e.message, true); }
+    let html = '';
+    const promises = [];
+    for (let i = 0n; i < 10n; i++) promises.push(c.stakes(userAddr, i).catch(() => null));
+    const results = await Promise.all(promises);
+    results.forEach((res, index) => {
+      if (!res || res[0] === 0n) return;
+      const principal = parseFloat(ethers.formatUnits(res[0], LGNS_DECIMALS)).toFixed(2);
+      const claimed = parseFloat(ethers.formatUnits(res[5], LGNS_DECIMALS)).toFixed(2);
+      const ended = res[7] ? "已领完本金" : "进行中";
+      html += `[批次 ${index + 1}] 本金: ${principal} | 已领利息: ${claimed} | 状态: ${ended}\n`;
+    });
+    showRes('resScan', html || '未检测到任何有效的定期质押批次凭证。');
+  } catch (e) { showRes('resScan', '❌ 探测中断: ' + e.message, true); }
 }
 async function viewSlabDetail() {
-  const c = getMintContract(); if(!c) return showRes('resDetail', '请先连接钱包', true);
-  const id = document.getElementById('detailSlabId').value.trim();
-  if(!id) return showRes('resDetail', '请输入编号', true);
-  showRes('resDetail', '⏳ 正在读取底层 slots 原始状态数组...');
+  const c = getMintContract(); if (!c) return showRes('resDetail', '请先连接钱包', true);
+  const id = document.getElementById('detailSlabId').value.trim(); if (!id) return showRes('resDetail', '请输入原始编号', true);
   try {
-    const info = await c.stakes(userAddr, BigInt(id));
-    let o = `本金 (amount): ${ethers.formatUnits(info[0], LGNS_DECIMALS)} LGNS\n`;
-    o += `增益分红基数 (gons): ${info[1].toString()}\n`;
-    o += `开始区块 (startBlock): ${info[2].toString()}\n`;
-    o += `到期区块 (endBlock): ${info[3].toString()}\n`;
-    o += `已提取利息次数 (claimedBlocks): ${info[4].toString()}\n`;
-    o += `累积发放记录 (totalInterestClaimed): ${ethers.formatUnits(info[5], SLGNS_DECIMALS)} sLGNS\n`;
-    o += `是否已撤回本金 (isClaimed): ${info[7]}\n`;
-    showRes('resDetail', o, false, true);
-  } catch(e) { showRes('resDetail', '❌ '+(e.reason||e.message), true); }
+    const res = await c.stakes(userAddr, BigInt(id));
+    let txt = `本金 (deposit): ${ethers.formatUnits(res[0], LGNS_DECIMALS)}\n`;
+    txt += `每份额分配 (rewardDebt): ${res[1].toString()}\n`;
+    txt += `总重数 (gons): ${res[2].toString()}\n`;
+    txt += `到期区块 (expiryBlock): ${res[3].toString()}\n`;
+    txt += `应得总利息 (totalInterest): ${ethers.formatUnits(res[4], LGNS_DECIMALS)}\n`;
+    txt += `已领利息 (interestClaimed): ${ethers.formatUnits(res[5], LGNS_DECIMALS)}\n`;
+    txt += `放大倍数 (gonsX): ${res[6].toString()}\n`;
+    txt += `是否退出 (ended): ${res[7]}\n`;
+    showRes('resDetail', txt);
+  } catch (e) { showRes('resDetail', '❌ 查询失败: ' + e.message, true); }
 }
 async function loadMintHistory() {
-  if(!provider) return showRes('resMintHistory', '请先连接钱包', true);
-  showRes('resMintHistory', '⏳ 正在拉取 RPC 高级区块过滤日志...');
+  if (!provider || !userAddr) return showRes('resMintHistory', '请先连接钱包', true);
+  showRes('resMintHistory', '⏳ 正在检索全网过滤器历史存证...');
   try {
-    const cur = await provider.getBlockNumber();
-    const filter = { address: [ADDR.Mint360, ADDR.Mint600], fromBlock: cur - 15000, toBlock: cur };
+    const currentBlock = await provider.getBlockNumber();
+    const filter = {
+      address: [ADDR.Mint360, ADDR.Mint600],
+      topics: [null, ethers.zeroPadValue(userAddr, 32)],
+      fromBlock: currentBlock - 50000, toBlock: 'latest'
+    };
     const logs = await provider.getLogs(filter);
-    let lines = [];
-    for (let l of logs) {
-      if(l.topics[1] && '0x'+l.topics[1].slice(26).toLowerCase() === userAddr.toLowerCase()) {
-        lines.push(`区块 ${l.blockNumber}: 匹配到定期合约动态调用 [Topic: ${l.topics[0].slice(0,10)}...]`);
-      }
-    }
-    showRes('resMintHistory', lines.length === 0 ? '最近 15000 个区块内未见历史打包记录' : lines.join('\n'), false, true);
+    if(logs.length === 0) return showRes('resMintHistory', '最近 50,000 个区块内未检测到定期历史记录。');
+    let lines = logs.map(log => {
+      const type = log.address.toLowerCase() === ADDR.Mint360.toLowerCase() ? '360天' : '600天';
+      return `[块高 ${log.blockNumber}] 合约:${type} | 原始日志数据:${log.data.slice(0, 30)}...`;
+    });
+    showRes('resMintHistory', lines.join('\n'), false, true);
   } catch (e) { showRes('resMintHistory', '❌ ' + (e.reason || e.message), true); }
-}
-
-function showRes(id, msg, isErr, isOk) {
-  const el = document.getElementById(id); if(!el) return;
-  el.textContent = msg; el.classList.remove('ok', 'err');
-  if (isErr) el.classList.add('err'); if (isOk) el.classList.add('ok');
 }
 </script>
 </body>
